@@ -1,0 +1,89 @@
+﻿@inject IPermissionService permissionService
+@inject ISnackbar Snackbar;
+
+<MudDialog DefaultFocus="DefaultFocus.FirstChild">
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@(editing?Icons.Material.Outlined.Edit:Icons.Material.Outlined.Create)" Color="Color.Primary" Class="mr-3 mb-n1" />
+            @MudDialog.Title
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudForm @bind-IsValid="formIsValid" Model="Permission" Disabled="saving" @ref="form">
+            <MudTextField @bind-Value="Permission.Name" For="@(() => Permission.Name)" Required="true" Immediate="true" Label="Name" Variant="Variant.Text" Margin="Margin.Normal"></MudTextField>
+            <MudRadioGroup @bind-SelectedOption="Permission.ActivityState">
+                <MudRadio Option="@("Active")" Color="Color.Success">Active</MudRadio>
+                <MudRadio Option="@("Deactive")" Color="Color.Error">Deactive</MudRadio>
+                <MudRadio Option="@("Suspend")">Suspend</MudRadio>
+            </MudRadioGroup>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="@Color.Success" Variant="Variant.Filled" OnClick="Save" Disabled="!formIsValid">Save</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    MudDialogInstance MudDialog { get; set; }
+
+    private MudForm? form;
+    private bool editing;
+    private bool saving;
+    bool formIsValid;
+
+    [Parameter]
+    public Permission? Permission { get; set; }
+
+
+    void Cancel() => MudDialog.Cancel();
+
+    protected override async Task OnInitializedAsync()
+    {
+        editing = Permission is null ? false : Permission.Id != Guid.Empty;
+    }
+
+    async Task Save()
+    {
+        try
+        {
+            saving = true;
+            await permissionService.SavePermission(Permission!);
+            Snackbar.Add(editing ? "Permission Edited." : "Permission Added.", MudBlazor.Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (ApiCallException ex)
+        {
+            foreach (var item in ex.ErrorMessages)
+            {
+                Snackbar.Add(
+    @<div>
+        <h3>Warning</h3>
+        <ul>
+            @foreach (var errorMessage in (ex as ApiCallException).ErrorMessages)
+            {
+                <li>@errorMessage</li>
+            }
+        </ul>
+    </div>
+    , Severity.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(
+    @<div>
+        <h3>Error</h3>
+        <ul>
+            <li>@ex.Message</li>
+            <li>@ex.InnerException?.Message</li>
+        </ul>
+    </div>
+    , Severity.Error);
+        }
+
+        saving = false;
+        form!.ResetValidation();
+    }
+}

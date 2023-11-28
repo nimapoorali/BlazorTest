@@ -1,0 +1,78 @@
+﻿@inherits LayoutComponentBase
+@inject ISnackbar Snackbar;
+
+<MudRTLProvider RightToLeft="@_isRightToLeft">
+    <MudThemeProvider />
+    <MudDialogProvider />
+    <MudSnackbarProvider />
+
+    <div Class="d-flex justify-center" style="background:@Colors.BlueGrey.Lighten5;">
+        <MudItem>
+            <CascadingValue Value="errorHandler">
+                @Body
+            </CascadingValue>
+        </MudItem>
+    </div>
+
+    @* <MudLayout>
+    <MudMainContent>
+    <MudContainer>
+    <CascadingValue Value="errorHandler">
+    @Body
+    </CascadingValue>
+    </MudContainer>
+    </MudMainContent>
+    </MudLayout>*@
+
+</MudRTLProvider>
+
+
+@code {
+    bool _isRightToLeft = false;
+    void TogglePageDir() => _isRightToLeft = !_isRightToLeft;
+    string SetPageDirMenu() => _isRightToLeft ? Icons.Material.Filled.FormatAlignLeft : Icons.Material.Filled.FormatAlignRight;
+
+
+    public async Task HandleException(Exception ex)
+    {
+
+        if (ex is ApiCallException)
+        {
+            Snackbar.Add(
+    @<div>
+        <h3>Warning</h3>
+        <ul>
+            @foreach (var errorMessage in (ex as ApiCallException).ErrorMessages)
+            {
+                <li>@errorMessage</li>
+            }
+        </ul>
+    </div>
+    , Severity.Warning);
+        }
+        else
+        {
+            Snackbar.Add(
+    @<div>
+        <h3>Error</h3>
+        <ul>
+            <li>@ex.Message</li>
+            <li>@ex.InnerException?.Message</li>
+        </ul>
+    </div>
+    , Severity.Error);
+        }
+
+    }
+
+    EventCallback<Exception> _errorHandler = EventCallback<Exception>.Empty;
+    EventCallback<Exception> errorHandler
+    {
+        get
+        {
+            if (_errorHandler.Equals(EventCallback<Exception>.Empty))
+                _errorHandler = EventCallback.Factory.Create<Exception>(this, (Exception inputArg) => HandleException(inputArg));
+            return _errorHandler;
+        }
+    }
+}
