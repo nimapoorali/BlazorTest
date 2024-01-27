@@ -3,7 +3,7 @@
 @inject ISnackbar Snackbar;
 @inject IDialogService DialogService;
 @inject IJSRuntime JsRuntime
-@attribute [Authorize]
+@attribute [Authorize(Roles = "User")]
 
 <div class="mb-4">
     <MudText Typo="Typo.h4" Style="">Roles</MudText>

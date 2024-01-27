@@ -1,48 +1,59 @@
 ﻿@page "/identity/permissions"
 @inject IPermissionService permissionService
-@inject ISnackbar Snackbar;
-@inject IDialogService DialogService;
+@inject IRoleService roleService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
 @inject IJSRuntime JsRuntime
-    <div class="mb-4">
-        <MudText Typo="Typo.h4" Style="">Permissions</MudText>
-        <MudBreadcrumbs Items="_breadCrumbItems" Class="pa-0" Style="font-size: small; font-weight:500;">
-        </MudBreadcrumbs>
-    </div>
-    <MudTable Elevation="4" Items="@permissions" Filter="new Func<Permission, bool>(Search)" @bind-role="permission" Loading="loading" RowsPerPage="5">
-        <ToolBarContent>
-            <MudButton class="mx-1" Color="@Color.Default" Variant="Variant.Filled" OnClick="GetPermissions">Reload Permissions</MudButton>
-            <MudButton class="mx-1" Color="@Color.Primary" Variant="Variant.Filled" OnClick="New">New Permission</MudButton>
-            <MudSpacer />
-            <MudTextField @bind-Value="searchString" Immediate="true" Placeholder="Search for Permissions..." Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
-        </ToolBarContent>
-        <HeaderContent>
-            <MudTh>Name</MudTh>
-            <MudTh>Activity</MudTh>
-            <MudTh></MudTh>
-        </HeaderContent>
-        <RowTemplate>
-            <MudTd DataLabel="Name">@context.Name</MudTd>
-            <MudTd DataLabel="ActivityState">
-                <MudCheckBox Style=" pointer-events: none; " @bind-Checked="@context.IsActive" Color="@(context.ActivityState=="Active"?Color.Success:context.ActivityState=="Deactive"?Color.Error:Color.Default)" ReadOnly="true"></MudCheckBox>
-            </MudTd>
-            <MudTd DataLabel="">
-                <MudMenu Label="Actions" EndIcon="@Icons.Material.Outlined.KeyboardArrowDown" Color="Color.Primary" IconColor="Color.Primary" DisableElevation="true">
-                    <MudMenuItem Icon="@Icons.Material.Outlined.Edit" IconSize="Size.Small" IconColor="Color.Primary" @onclick="@(()=>Edit(context.Id))">
-                        Edit
-                    </MudMenuItem>
-                    <MudMenuItem Icon="@Icons.Material.Outlined.People" IconSize="Size.Small" IconColor="Color.Primary" @onclick="@(()=>PermissionRoles(context.Id))">
-                        Roles
-                    </MudMenuItem>
-                    <MudMenuItem Icon="@Icons.Material.Outlined.Delete" IconSize="Size.Small" IconColor="Color.Secondary" @onclick="@(()=>Delete(context.Id))">
-                        Delete
-                    </MudMenuItem>
-                </MudMenu>
-            </MudTd>
-        </RowTemplate>
-        <PagerContent>
-            <MudTablePager HorizontalAlignment="HorizontalAlignment.End" PageSizeOptions="new int[]{5,10,50,100}"></MudTablePager>
-        </PagerContent>
-    </MudTable>
+
+<div class="mb-4">
+    <MudText Typo="Typo.h4" Style="">Permissions</MudText>
+    <MudBreadcrumbs Items="_breadCrumbItems" Class="pa-0" Style="font-size: small; font-weight:500;">
+    </MudBreadcrumbs>
+</div>
+<MudTable Elevation="4" Items="@permissions" Filter="new Func<Permission, bool>(Search)" @bind-role="permission" Loading="loading" RowsPerPage="5">
+    <ToolBarContent>
+        <MudButton class="mx-1" Color="@Color.Default" Variant="Variant.Filled" OnClick="GetPermissions">Reload Permissions</MudButton>
+        <MudButton class="mx-1" Color="@Color.Primary" Variant="Variant.Filled" OnClick="New">New Permission</MudButton>
+        <MudSpacer />
+        <MudTextField @bind-Value="searchString" Immediate="true" Placeholder="Search for Permissions..." Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+    </ToolBarContent>
+    <HeaderContent>
+        <MudTh>Name</MudTh>
+        <MudTh>Activity</MudTh>
+        <MudTh>Roles</MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Name">@context.Name</MudTd>
+        <MudTd DataLabel="ActivityState">
+            <MudCheckBox Style=" pointer-events: none; " @bind-Checked="@context.IsActive" Color="@(context.ActivityState=="Active"?Color.Success:context.ActivityState=="Deactive"?Color.Error:Color.Default)" ReadOnly="true"></MudCheckBox>
+        </MudTd>
+        <MudTd DataLabel="">
+            @if (context.RoleIds is not null)
+            {
+                var permissionRoles = allRoles?.Where(r => context.RoleIds.Contains(r.Id));
+                if (permissionRoles is not null)
+                    @string.Join(", ", permissionRoles.Select(r => r.Title))                    ;
+            }
+        </MudTd>
+        <MudTd DataLabel="">
+            <MudMenu Label="Actions" EndIcon="@Icons.Material.Outlined.KeyboardArrowDown" Color="Color.Primary" IconColor="Color.Primary" DisableElevation="true">
+                <MudMenuItem Icon="@Icons.Material.Outlined.Edit" IconSize="Size.Small" IconColor="Color.Primary" @onclick="@(()=>Edit(context.Id))">
+                    Edit
+                </MudMenuItem>
+                <MudMenuItem Icon="@Icons.Material.Outlined.People" IconSize="Size.Small" IconColor="Color.Primary" @onclick="@(()=>PermissionRoles(context.Id))">
+                    Roles
+                </MudMenuItem>
+                <MudMenuItem Icon="@Icons.Material.Outlined.Delete" IconSize="Size.Small" IconColor="Color.Secondary" @onclick="@(()=>Delete(context.Id))">
+                    Delete
+                </MudMenuItem>
+            </MudMenu>
+        </MudTd>
+    </RowTemplate>
+    <PagerContent>
+        <MudTablePager HorizontalAlignment="HorizontalAlignment.End" PageSizeOptions="new int[]{5,10,50,100}"></MudTablePager>
+    </PagerContent>
+</MudTable>
 
 @code {
 
@@ -62,12 +73,15 @@
     private Permission? permission;
     private string searchString = "";
     private bool loading;
+    private List<Role>? allRoles = new();
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
             Snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopEnd;
+
+            allRoles = await roleService.GetRoles();
 
             await GetPermissions();
         }

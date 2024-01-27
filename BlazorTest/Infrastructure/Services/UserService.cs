@@ -23,7 +23,7 @@ namespace BlazorTest.Infrastructure.Services
 
         public async Task<List<User>?> GetUsers()
         {
-            return await ApiCaller.GetAsync<List<User>>("identity/users");
+            return await ApiCaller.GetAsync<List<User>>("identity/users", setAuthHeader: true);
         }
         public async Task<User?> GetUserById(Guid id)
         {
@@ -31,11 +31,11 @@ namespace BlazorTest.Infrastructure.Services
         }
         public async Task<IEnumerable<UserRole>?> GetUserRoles(Guid userId)
         {
-            return await ApiCaller.GetAsync<IEnumerable<UserRole>>("identity/users/" + userId.ToString() + "/roles");
+            return await ApiCaller.GetAsync<IEnumerable<UserRole>>("identity/users/" + userId.ToString() + "/roles", setAuthHeader: true);
         }
         public async Task SetUserRoles(Guid userId, Guid[] roleIds)
         {
-            await ApiCaller.PutAsync("identity/users/" + userId.ToString() + "/roles", roleIds);
+            await ApiCaller.PutAsync("identity/users/" + userId.ToString() + "/roles", roleIds, setAuthHeader: true);
         }
         public async Task DeleteUser(Guid id)
         {
