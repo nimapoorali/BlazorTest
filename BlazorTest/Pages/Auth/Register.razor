@@ -1,0 +1,128 @@
+﻿@page "/register"
+@layout AuthLayout
+@inject NavigationManager NavigationManager
+@inject IAuthService AuthService
+
+<div Style="display: flex; justify-content:center; align-items: center; min-height:100vh;">
+    <MudGrid Class="d-flex" Spacing="0" Justify="Justify.Center">
+        <MudItem xs="10" sm="8">
+            <MudLink Href="" Underline="Underline.None" Color="Color.Inherit" Class="d-flex justify-center align-content-center">
+                <MudText Typo="Typo.h4" Class="d-flex align-center my-2" Align="Align.Center" Color="Color.Inherit">
+                    <MudIcon Size="Size.Large" Icon="@Icons.Material.Filled.Api" Color="Color.Primary" Title="BuyAgent" Class="me-2" />BuyAgent
+                </MudText>
+            </MudLink>
+            <MudCard Class="my-4 px-4" Elevation="25">
+                <MudCardHeader Class="pt-6">
+                    <MudGrid>
+                        <MudItem xs="12" Class="d-flex justify-center"><MudText Typo="Typo.h5">Create an account</MudText></MudItem>
+                        <MudItem xs="12" Class="d-flex justify-center py-0"><MudText Typo="Typo.body2">Enter the information below to create your account</MudText></MudItem>
+                    </MudGrid>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudTabs Elevation="0" Rounded Centered MinimumTabWidth="110px" ApplyEffectsToContainer="true" PanelClass="pt-6">
+                        <MudTabPanel Text="Name" >
+                            <MudForm @bind-IsValid="formIsValid" Model="RegisterModel" Disabled="saving" @ref="form">
+                                <MudText Typo="Typo.body2">Nick Name</MudText>
+                                <MudTextField @bind-Value="RegisterModel.Username" For="@(() => RegisterModel.Username)" Required Immediate
+                                              Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-1"></MudTextField>
+                                <MudText Typo="Typo.body2">Password</MudText>
+                                <MudTextField @bind-Value="RegisterModel.Password" For="@(() => RegisterModel.Password)" Required
+                                              InputType="PasswordInput" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-1"
+                                              Adornment="Adornment.End" AdornmentIcon="@PasswordInputIcon" OnAdornmentClick="TogglePasswordVisibility"></MudTextField>
+                                <MudText Typo="Typo.body2">Confirm Password</MudText>
+                                <MudTextField @bind-Value="RegisterModel.ConfirmPassword" For="@(() => RegisterModel.ConfirmPassword)" Required
+                                              InputType="PasswordInput" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-1"></MudTextField>
+                                <div class="d-flex align-center">
+                                    <MudCheckBox @bind-Checked="RegisterModel.TermsAgreed" Class="mb-2"></MudCheckBox>
+                                    <MudText Typo="Typo.body2" Class="mb-2">I agree and accept the <MudLink Typo="Typo.body2" Href="/terms">Terms & Conditions</MudLink></MudText>
+                                </div>
+                                <MudButton FullWidth="true" Color="@Color.Primary" Variant="Variant.Filled" OnClick="RegisterUser" Class="mt-0 mb-2">Create account</MudButton>
+                            </MudForm>
+                        </MudTabPanel>
+                        <MudTabPanel Text="Email">
+                            <MudForm @bind-IsValid="formIsValid" Model="RegisterModel" Disabled="saving" @ref="form">
+                                <MudText Typo="Typo.body2">Email address</MudText>
+                                <MudTextField @bind-Value="RegisterModel.Username" For="@(() => RegisterModel.Username)" Required Immediate
+                                              Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-1"></MudTextField>
+                                <div class="d-flex align-center">
+                                    <MudCheckBox @bind-Checked="RegisterModel.TermsAgreed" Class="mb-2"></MudCheckBox>
+                                    <MudText Typo="Typo.body2" Class="mb-2">I agree and accept the <MudLink Typo="Typo.body2" Href="/terms">Terms & Conditions</MudLink></MudText>
+                                </div>
+                                <MudButton FullWidth="true" Color="@Color.Primary" Variant="Variant.Filled" OnClick="RegisterUser" Class="mt-0 mb-2">Create account</MudButton>
+                            </MudForm>
+                        </MudTabPanel>
+                        <MudTabPanel Text="Mobile">
+                            <MudForm @bind-IsValid="formIsValid" Model="RegisterModel" Disabled="saving" @ref="form">
+                                <MudText Typo="Typo.body2">Mobile number</MudText>
+                                <MudTextField @bind-Value="RegisterModel.Username" For="@(() => RegisterModel.Username)" Required Immediate
+                                              Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-1"></MudTextField>
+                                <div class="d-flex align-center">
+                                    <MudCheckBox @bind-Checked="RegisterModel.TermsAgreed" Class="mb-2"></MudCheckBox>
+                                    <MudText Typo="Typo.body2" Class="mb-2">I agree and accept the <MudLink Typo="Typo.body2" Href="/terms">Terms & Conditions</MudLink></MudText>
+                                </div>
+                                <MudButton FullWidth="true" Color="@Color.Primary" Variant="Variant.Filled" OnClick="RegisterUser" Class="mt-0 mb-2">Create account</MudButton>
+                            </MudForm>
+                        </MudTabPanel>
+                    </MudTabs>
+                    <MudText Typo="Typo.body2" Class="mb-2">Already have an account? <MudLink Typo="Typo.body2" Href="/login">Login</MudLink></MudText>
+
+                </MudCardContent>
+            </MudCard>
+            <MudText Align="Align.Center">Powered by <MudLink Href="#">Nima Poorali</MudLink></MudText>
+        </MudItem>
+    </MudGrid>
+</div>
+
+
+@code {
+    private MudForm? form;
+    private bool saving;
+    bool formIsValid;
+
+    [Parameter]
+    public RegisterDto? RegisterModel { get; set; } = new();
+
+    [CascadingParameter]
+    public EventCallback<Exception> errorHandler
+    {
+        get; set;
+    }
+
+    bool isShow;
+    InputType PasswordInput = InputType.Password;
+    string PasswordInputIcon = Icons.Material.Filled.VisibilityOff;
+
+    void TogglePasswordVisibility()
+    {
+        @if (isShow)
+        {
+            isShow = false;
+            PasswordInputIcon = Icons.Material.Filled.VisibilityOff;
+            PasswordInput = InputType.Password;
+        }
+        else
+        {
+            isShow = true;
+            PasswordInputIcon = Icons.Material.Filled.Visibility;
+            PasswordInput = InputType.Text;
+        }
+    }
+
+    async Task RegisterUser()
+    {
+        try
+        {
+            saving = true;
+            //await AuthService.Login(LoginModel.Username, LoginModel.Password);
+            //NavigationManager.NavigateTo("");
+        }
+        catch (Exception ex)
+        {
+            await errorHandler.InvokeAsync(ex);
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+}

@@ -1,0 +1,170 @@
+﻿@inherits LayoutComponentBase
+@inject ISnackbar Snackbar;
+@inject NavigationManager NavigationManager
+
+<MudRTLProvider RightToLeft="@_isRightToLeft">
+    <MudThemeProvider />
+    <MudDialogProvider />
+    <MudSnackbarProvider />
+    <MudLayout>
+        <MudAppBar>
+            <MudIcon Icon="@Icons.Material.Filled.Api" Title="API" />
+            <MudText Typo="Typo.h5" Class="mx-2">Administration</MudText>
+            <MudTooltip Text="Toggle Menu" Arrow="true" Duration="500">
+                <MudIconButton Class="mx-1" Icon="@SetDrawerTogglerMenu()" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" />
+            </MudTooltip>
+            <MudTooltip Text="@(_isRightToLeft?"LTR Layout":"RTL Layout")" Arrow="true" Duration="500">
+                <MudIconButton Class="mx-1" Icon="@SetPageDirMenu()" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => TogglePageDir())" />
+            </MudTooltip>
+            <MudSpacer />
+            <MudMenu Dense="true" class="mx-5" AnchorOrigin="@(_isRightToLeft?Origin.BottomLeft: Origin.BottomRight)">
+                <ActivatorContent>
+                    <MudBadge Content="4" Color="Color.Info" Overlap="true">
+                        <MudIcon Icon="@Icons.Material.Outlined.Notifications" Color="Color.Inherit"></MudIcon>
+                    </MudBadge>
+                </ActivatorContent>
+                <ChildContent>
+                    <div class="px-2">
+                        <MudMenuItem Icon="@Icons.Material.Outlined.Info" IconColor="Color.Info" IconSize="Size.Small">
+                            <MudText Typo="Typo.h6">Lorem Ipsum</MudText>
+                            <MudText Typo="Typo.body2">Quae dolorem earum veritatis oditseno</MudText>
+                            <MudText Typo="Typo.caption">1 hour ago</MudText>
+                        </MudMenuItem>
+                        <MudDivider Class="my-2" />
+                        <MudMenuItem Icon="@Icons.Material.Outlined.WarningAmber" IconColor="Color.Warning" IconSize="Size.Small">
+                            <MudText Typo="Typo.h6">Lorem Ipsum</MudText>
+                            <MudText Typo="Typo.body2">Quae dolorem earum veritatis oditseno</MudText>
+                            <MudText Typo="Typo.caption">1 hour ago</MudText>
+                        </MudMenuItem>
+                        <MudDivider Class="my-2" />
+                        <MudMenuItem Icon="@Icons.Material.Outlined.CheckCircle" IconColor="Color.Success" IconSize="Size.Small">
+                            <MudText Typo="Typo.h6">Lorem Ipsum</MudText>
+                            <MudText Typo="Typo.body2">Quae dolorem earum veritatis oditseno</MudText>
+                            <MudText Typo="Typo.caption">1 hour ago</MudText>
+                        </MudMenuItem>
+                        <MudDivider Class="my-2" />
+                        <MudMenuItem Icon="@Icons.Material.Outlined.ErrorOutline" IconColor="Color.Error" IconSize="Size.Small">
+                            <MudText Typo="Typo.h6">Lorem Ipsum</MudText>
+                            <MudText Typo="Typo.body2">Quae dolorem earum veritatis oditseno</MudText>
+                            <MudText Typo="Typo.caption">1 hour ago</MudText>
+                        </MudMenuItem>
+                        <MudDivider Class="my-2" />
+                        <MudLink Class="d-flex justify-center py-2" Href="/notifications">Show all notifications</MudLink>
+                    </div>
+                </ChildContent>
+
+            </MudMenu>
+            <AuthorizeView>
+                <Authorized>
+                    <MudMenu Dense="true" class="d-flex align-center" AnchorOrigin="@(_isRightToLeft?Origin.BottomLeft: Origin.BottomRight)">
+                        <ActivatorContent>
+                            <MudAvatar Class="white" Variant="Variant.Filled">
+                                <MudIcon Color="Color.Dark" Icon="@Icons.Material.Outlined.AccountCircle" Size="Size.Large" />
+                            </MudAvatar>
+                            <MudText Typo="Typo.subtitle1" Class="mx-2">@context.User.Identity?.Name</MudText>
+                            <MudIcon Icon="@Icons.Material.Filled.ArrowDropDown" />
+                        </ActivatorContent>
+                        <ChildContent>
+                            <div class="pa-2">
+                                <MudText Typo="Typo.subtitle2" Class="d-flex justify-center">@context.User.Identity?.Name</MudText>
+                                <MudText Typo="Typo.caption" Class="d-flex justify-center">@context.User.Claims.FirstOrDefault(c=>c.Type== System.Security.Claims.ClaimTypes.Role)?.Value</MudText>
+                                <MudDivider Class="my-2" />
+                                <MudMenuItem Icon="@Icons.Material.Outlined.AccountBox" IconSize="Size.Small">My Profile</MudMenuItem>
+                                <MudMenuItem Icon="@Icons.Material.Outlined.Logout" IconSize="Size.Small" OnClick="Logout">Sign Out</MudMenuItem>
+                            </div>
+
+                        </ChildContent>
+                    </MudMenu>
+                </Authorized>
+                <NotAuthorized>
+                    <MudLink Href="/login" Color="Color.Inherit">Login / Register</MudLink>
+                </NotAuthorized>
+            </AuthorizeView>
+
+        </MudAppBar>
+        <MudDrawer @bind-Open="@_isOpenDrawer" ClipMode="DrawerClipMode.Always">
+            <MyNavMenu />
+        </MudDrawer>
+        <MudMainContent>
+            <MudContainer Fixed="true" Class="py-4">
+                @*<CusomErrorBoundary>*@
+                <CascadingValue Value="errorHandler">
+                    @Body
+                </CascadingValue>
+                @*</CusomErrorBoundary>*@
+            </MudContainer>
+        </MudMainContent>
+    </MudLayout>
+
+</MudRTLProvider>
+
+
+@code {
+    bool _isOpenDrawer = true;
+    void DrawerToggle() => _isOpenDrawer = !_isOpenDrawer;
+    string SetDrawerTogglerMenu() => _isOpenDrawer ? Icons.Material.Filled.MenuOpen : Icons.Material.Filled.Menu;
+
+    bool _isRightToLeft = false;
+    void TogglePageDir() => _isRightToLeft = !_isRightToLeft;
+    string SetPageDirMenu() => _isRightToLeft ? Icons.Material.Filled.FormatAlignLeft : Icons.Material.Filled.FormatAlignRight;
+
+    [CascadingParameter]
+    protected Task<AuthenticationState> AuthState { get; set; }
+
+    protected async override Task OnInitializedAsync()
+    {
+        var user = (await AuthState).User;
+        if (!user.Identity.IsAuthenticated)
+        {
+            NavigationManager.NavigateTo($"/login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}");
+        }
+    }
+
+    private void Logout()
+    {
+        NavigationManager.NavigateTo("/logout");    
+    }
+
+    public async Task HandleException(Exception ex)
+    {
+
+        if (ex is ApiCallException)
+        {
+            Snackbar.Add(
+    @<div>
+        <h3>Warning</h3>
+        <ul>
+            @foreach (var errorMessage in (ex as ApiCallException).ErrorMessages)
+            {
+                <li>@errorMessage</li>
+            }
+        </ul>
+    </div>
+    , Severity.Warning);
+        }
+        else
+        {
+            Snackbar.Add(
+    @<div>
+        <h3>Error</h3>
+        <ul>
+            <li>@ex.Message</li>
+            <li>@ex.InnerException?.Message</li>
+        </ul>
+    </div>
+    , Severity.Error);
+        }
+
+    }
+
+    EventCallback<Exception> _errorHandler = EventCallback<Exception>.Empty;
+    EventCallback<Exception> errorHandler
+    {
+        get
+        {
+            if (_errorHandler.Equals(EventCallback<Exception>.Empty))
+                _errorHandler = EventCallback.Factory.Create<Exception>(this, (Exception inputArg) => HandleException(inputArg));
+            return _errorHandler;
+        }
+    }
+}

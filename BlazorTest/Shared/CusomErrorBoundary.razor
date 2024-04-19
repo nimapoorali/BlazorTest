@@ -1,0 +1,59 @@
+﻿@inherits ErrorBoundary
+@inject ISnackbar Snackbar;
+
+@if (CurrentException is null)
+{
+        @ChildContent
+}
+else if (ErrorContent is not null)
+{
+    @ErrorContent(CurrentException)
+}
+else
+{
+    @ChildContent
+
+    @foreach (var exception in receivedExceptions)
+    {
+        if (exception is ApiCallException)
+        {
+            Snackbar.Add(
+@<div>
+    <h3>Error</h3>
+    <ul>
+        <li>@exception.Message</li>
+    </ul>
+</div>
+, Severity.Warning);
+        }
+        else
+        {
+            Snackbar.Add(
+@<div>
+    <h3>Error</h3>
+    <ul>
+        <li>@exception.Message</li>
+        <li>@exception.InnerException?.Message</li>
+    </ul>
+</div>
+            , Severity.Error);
+        }
+    }
+
+    Recover();
+}
+
+@code {
+    List<Exception> receivedExceptions = new();
+    protected override Task OnErrorAsync(Exception exception)
+    {
+        receivedExceptions.Add(exception);
+        return base.OnErrorAsync(exception);
+    }
+
+    public new void Recover()
+    {
+        receivedExceptions.Clear();
+        base.Recover();
+    }
+}

@@ -1,0 +1,122 @@
+﻿@page "/login"
+@layout AuthLayout
+@inject NavigationManager NavigationManager
+@inject IAuthService AuthService
+
+<div Style="display: flex; justify-content:center; align-items: center; min-height:100vh;">
+    <MudGrid Class="d-flex" Spacing="0" Justify="Justify.Center">
+        <MudItem xs="10" sm="8">
+            <MudLink Href="" Underline="Underline.None" Color="Color.Inherit" Class="d-flex justify-center align-content-center">
+                <MudText Typo="Typo.h4" Class="d-flex align-center my-2" Align="Align.Center" Color="Color.Inherit">
+                    <MudIcon Size="Size.Large" Icon="@Icons.Material.Filled.Api" Color="Color.Primary" Title="BuyAgent" Class="me-2" />BuyAgent
+                </MudText>
+            </MudLink>
+            <MudCard Class="my-4 px-4" Elevation="25">
+                <MudCardHeader Class="pt-6">
+                    <MudGrid>
+                        <MudItem xs="12" Class="d-flex justify-center"><MudText Typo="Typo.h5">Login to your account</MudText></MudItem>
+                        <MudItem xs="12" Class="d-flex justify-center py-0"><MudText Typo="Typo.body2">Enter your username & password to login</MudText></MudItem>
+                    </MudGrid>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudForm @bind-IsValid="formIsValid" Model="LoginModel" Disabled="saving" @ref="form">
+                        <MudText Typo="Typo.body2">Username</MudText>
+                        <MudTextField @bind-Value="LoginModel.Username" For="@(() => LoginModel.Username)" Required="true" Immediate="true"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-1"></MudTextField>
+                        <MudText Typo="Typo.body2">Password</MudText>
+                        <MudTextField @bind-Value="LoginModel.Password" For="@(() => LoginModel.Password)" Required
+                                      InputType="PasswordInput" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-1"
+                                      Adornment="Adornment.End" AdornmentIcon="@PasswordInputIcon" OnAdornmentClick="TogglePasswordVisibility"></MudTextField>
+                        <MudCheckBox @bind-Checked="LoginModel.RememberMe" Label="Remember me" Class="mb-2"></MudCheckBox>
+                        <MudButton FullWidth="true" Color="@Color.Primary" Variant="Variant.Filled" OnClick="LoginUser" Class="mt-0 mb-2">Login</MudButton>
+                        <MudText Typo="Typo.body2" Class="mb-2">Don't have an account? <MudLink Typo="Typo.body2" Href="/register">Create an account</MudLink></MudText>
+                        <MudDivider>OR</MudDivider>
+                        <MudButton Class="mt-3"
+                                   FullWidth
+                                   Href="#"
+                                   Target="_blank"
+                                   Variant="Variant.Outlined"
+                                   StartIcon="@Icons.Custom.Brands.Google"
+                                   Color="Color.Error"
+                                   Style="text-transform:none">
+                            Login by Google
+                        </MudButton>
+                        <MudButton Class="mt-2"
+                                   FullWidth Href="#"
+                                   Target="_blank"
+                                   Variant="Variant.Outlined"
+                                   StartIcon="@Icons.Custom.Brands.LinkedIn"
+                                   Color="Color.Info"
+                                   Style="text-transform:none">
+                            Login by LinkedIn
+                        </MudButton>
+                        <MudButton Class="mt-2"
+                                   FullWidth Href="#"
+                                   Target="_blank"
+                                   Variant="Variant.Outlined"
+                                   StartIcon="@Icons.Custom.Brands.GitHub"
+                                   Color="Color.Surface"
+                                   Style="text-transform:none">
+                            Login by GitHub
+                        </MudButton>
+                    </MudForm>
+                </MudCardContent>
+            </MudCard>
+            <MudText Align="Align.Center">Powered by <MudLink Href="#">Nima Poorali</MudLink></MudText>
+        </MudItem>
+    </MudGrid>
+</div>
+
+
+@code {
+    private MudForm? form;
+    private bool saving;
+    bool formIsValid;
+
+    [Parameter]
+    public LoginDto? LoginModel { get; set; } = new();
+
+    [CascadingParameter]
+    public EventCallback<Exception> errorHandler
+    {
+        get; set;
+    }
+
+    bool isShow;
+    InputType PasswordInput = InputType.Password;
+    string PasswordInputIcon = Icons.Material.Filled.VisibilityOff;
+
+    void TogglePasswordVisibility()
+    {
+        @if (isShow)
+        {
+            isShow = false;
+            PasswordInputIcon = Icons.Material.Filled.VisibilityOff;
+            PasswordInput = InputType.Password;
+        }
+        else
+        {
+            isShow = true;
+            PasswordInputIcon = Icons.Material.Filled.Visibility;
+            PasswordInput = InputType.Text;
+        }
+    }
+
+    async Task LoginUser()
+    {
+        try
+        {
+            saving = true;
+            await AuthService.Login(LoginModel.Username, LoginModel.Password);
+            NavigationManager.NavigateTo("");
+        }
+        catch (Exception ex)
+        {
+            await errorHandler.InvokeAsync(ex);
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+}

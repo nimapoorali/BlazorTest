@@ -1,0 +1,144 @@
+﻿@inject IUserService userService
+@inject IDialogService DialogService;
+@inject ISnackbar Snackbar;
+
+<MudDialog DefaultFocus="DefaultFocus.FirstChild">
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Outlined.Phone" Color="Color.Primary" Class="mr-3 mb-n1" />
+            @MudDialog.Title
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudForm @bind-IsValid="formIsValid" Model="User" Disabled="saving" @ref="form">
+            <MudTextField @bind-Value="User.Mobile" For="@(() => User.Mobile)" Required="true" Immediate="true" Label="Mobile" Variant="Variant.Text" Margin="Margin.Normal"></MudTextField>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="@Color.Success" Variant="Variant.Filled" OnClick="Save" Disabled="!formIsValid">Save</MudButton>
+        <MudButton Color="@Color.Primary" Variant="Variant.Filled" OnClick="VerificationKey" Disabled="!IsEditing">Verification Key</MudButton>
+        <MudButton Color="@Color.Error" Variant="Variant.Filled" OnClick="Delete" Disabled="!IsEditing">Delete</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    MudDialogInstance MudDialog { get; set; }
+
+    private MudForm? form;
+    private bool saving;
+    bool formIsValid;
+
+    [Parameter]
+    public EditMobile? User { get; set; }
+    
+    [Parameter]
+    public bool IsEditing { get; set; }
+
+
+    void Cancel() => MudDialog.Cancel();
+
+    protected override async Task OnInitializedAsync()
+    {
+        formIsValid = User is not null && User.UserId != Guid.Empty;
+    }
+
+    async Task Save()
+    {
+        try
+        {
+            saving = true;
+            await userService.SaveMobile(User!);
+            Snackbar.Add("Mobile Saved.", MudBlazor.Severity.Success);
+
+            var parameters = new DialogParameters<MobileVerificationKeyDialog> { { x => x.User, User } };
+            var options = new DialogOptions { CloseOnEscapeKey = false, CloseButton = false, FullWidth = true };
+            var dialog = DialogService.Show<MobileVerificationKeyDialog>("Mobile Verification Key", parameters, options);
+            var result = await dialog.Result;
+            if (!dialog.Result.IsCanceled)
+                MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            await HandleException(ex);
+        }
+
+        saving = false;
+        form!.ResetValidation();
+    }
+
+    async Task VerificationKey()
+    {
+        try
+        {
+            saving = true;
+            await userService.MobileVerificationKey(User!.UserId);
+            //Snackbar.Add("Email Saved.", MudBlazor.Severity.Success);
+
+            var parameters = new DialogParameters<MobileVerificationKeyDialog> { { x => x.User, User } };
+            var options = new DialogOptions { CloseOnEscapeKey = false, CloseButton = false, FullWidth = true };
+            var dialog = DialogService.Show<MobileVerificationKeyDialog>("Mobile Verification Key", parameters, options);
+            var result = await dialog.Result;
+            if (!dialog.Result.IsCanceled)
+                MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            await HandleException(ex);
+        }
+
+        saving = false;
+        form!.ResetValidation();
+    }
+    
+    async Task Delete()
+    {
+        try
+        {
+            saving = true;
+            await userService.DeleteMobile(User!.UserId);
+            Snackbar.Add("Mobile Deleted.", MudBlazor.Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            await HandleException(ex);
+        }
+
+        saving = false;
+        form!.ResetValidation();
+    }
+
+    public async Task HandleException(Exception ex)
+    {
+
+        if (ex is ApiCallException)
+        {
+            Snackbar.Add(
+    @<div>
+        <h3>Warning</h3>
+        <ul>
+            @foreach (var errorMessage in (ex as ApiCallException).ErrorMessages)
+            {
+                <li>@errorMessage</li>
+            }
+        </ul>
+    </div>
+    , Severity.Warning);
+        }
+        else
+        {
+            Snackbar.Add(
+    @<div>
+        <h3>Error</h3>
+        <ul>
+            <li>@ex.Message</li>
+            <li>@ex.InnerException?.Message</li>
+        </ul>
+    </div>
+    , Severity.Error);
+        }
+
+    }
+}

@@ -1,0 +1,212 @@
+﻿@page "/identity/roles1"
+@inject IRoleService roleService
+@inject ISnackbar Snackbar;
+@inject IDialogService DialogService;
+@inject IJSRuntime JsRuntime
+@attribute [Authorize(Roles = "User")]
+
+<div class="mb-4">
+    <MudText Typo="Typo.h4" Style="">Roles</MudText>
+    <MudBreadcrumbs Items="_breadCrumbItems" Class="pa-0" Style="font-size: small; font-weight:500;">
+    </MudBreadcrumbs>
+</div>
+<MudCard Elevation="4">
+    @*<MudCardHeader>
+    <CardHeaderContent>
+    <MudText Typo="Typo.h6">Add/Edit Roles</MudText>
+    </CardHeaderContent>
+    </MudCardHeader>*@
+    <MudCardContent>
+        <MudForm @bind-IsValid="formIsValid" Model="role" Disabled="saving" @ref="form">
+            <MudTextField @bind-Value="role.Title" For="@(() => role.Title)" Required="true" Immediate="true" Label="Title" Variant="Variant.Text" Margin="Margin.Normal"></MudTextField>
+            <MudTextField @bind-Value="role.GroupTitle" For="@(() => role.GroupTitle)" Required="true" Immediate="true" Label="Group Title" Variant="Variant.Text" Margin="Margin.Normal"></MudTextField>
+            @*<MudSwitch @bind-Checked="role.ActivityState" Color="role.ActivityState=="Active"?Color.Success:Color.Default"></MudSwitch>*@
+            <MudRadioGroup @bind-SelectedOption="role.ActivityState">
+                <MudRadio Option="@("Active")" Color="Color.Success">Active</MudRadio>
+                <MudRadio Option="@("Deactive")" Color="Color.Error">Deactive</MudRadio>
+                <MudRadio Option="@("Suspend")">Suspend</MudRadio>
+            </MudRadioGroup>
+        </MudForm>
+    </MudCardContent>
+    <MudCardActions>
+        <MudButton DisableElevation="true" Class="mx-1" Color="Color.Default" OnClick="GetRoles">Cancel</MudButton>
+        <MudButton DisableElevation="true" Class="mx-1" Variant="Variant.Filled" Color="Color.Success" OnClick="Save" Disabled="!formIsValid">Save</MudButton>
+    </MudCardActions>
+</MudCard>
+<br />
+<MudTable Elevation="4" Items="@roles" Filter="new Func<Role, bool>(Search)" @bind-role="role" Loading="loading" RowsPerPage="5">
+    <ToolBarContent>
+        <MudText Typo="Typo.h6" Color="Color.Info">Registered Roles</MudText>
+        <MudSpacer />
+        <MudTextField @bind-Value="searchString" Immediate="true" Placeholder="Search for Roles..." Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+    </ToolBarContent>
+    <HeaderContent>
+        <MudTh>Id</MudTh>
+        <MudTh>Title</MudTh>
+        <MudTh>Group Title</MudTh>
+        <MudTh>Activity</MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Id">@context.Id</MudTd>
+        <MudTd DataLabel="FirstName">@context.Title</MudTd>
+        <MudTd DataLabel="LastName">@context.GroupTitle</MudTd>
+        <MudTd DataLabel="ActivityState">
+            <MudCheckBox Style=" pointer-events: none; " @bind-Checked="@context.IsActive" Color="@(context.ActivityState=="Active"?Color.Success:context.ActivityState=="Deactive"?Color.Error:Color.Default)" ReadOnly="true"></MudCheckBox>
+        </MudTd>
+        <MudTd DataLabel="">
+            <MudMenu Label="Actions" EndIcon="@Icons.Material.Outlined.KeyboardArrowDown" Color="Color.Primary" IconColor="Color.Primary" DisableElevation="true">
+                <MudMenuItem Icon="@Icons.Material.Outlined.Edit" IconSize="Size.Small" IconColor="Color.Primary" @onclick="@(()=>Edit(context.Id))">
+                    Edit
+                </MudMenuItem>
+                <MudMenuItem Icon="@Icons.Material.Outlined.Delete" IconSize="Size.Small" IconColor="Color.Secondary" @onclick="@(()=>Delete(context.Id))">
+                    Delete
+                </MudMenuItem>
+            </MudMenu>
+        </MudTd>
+    </RowTemplate>
+    <PagerContent>
+        <MudTablePager HorizontalAlignment="HorizontalAlignment.End" PageSizeOptions="new int[]{5,10,50,100}"></MudTablePager>
+    </PagerContent>
+</MudTable>
+
+@code {
+
+    private List<BreadcrumbItem> _breadCrumbItems = new List<BreadcrumbItem>
+    {
+        new BreadcrumbItem("Home", href: "/"),
+        new BreadcrumbItem("Identity", href: null, disabled : true),
+        new BreadcrumbItem("Roles", href: null, disabled : true)
+    };
+
+    private MudForm? form;
+    private List<Role>? roles = new();
+    private Role? role = new();
+    private string searchString = "";
+    private bool loading;
+    private bool saving;
+    bool formIsValid;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await GetRoles();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, MudBlazor.Severity.Error);
+        }
+
+    }
+
+    private bool Search(Role role)
+    {
+        if (string.IsNullOrWhiteSpace(searchString)) return true;
+        if (role.Title.Contains(searchString, StringComparison.OrdinalIgnoreCase)
+            || role.GroupTitle.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    async Task<List<Role>?> GetRoles()
+    {
+        try
+        {
+            loading = true;
+            roles = await roleService.GetRoles();
+        }
+        catch (ApiCallException ex)
+        {
+            foreach (var item in ex.ErrorMessages)
+            {
+                Snackbar.Add(item, MudBlazor.Severity.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, MudBlazor.Severity.Error);
+        }
+        finally
+        {
+            loading = false;
+            saving = false;
+            await form!.ResetAsync();
+            role = new();
+            StateHasChanged();
+        }
+
+        return roles;
+    }
+
+    async void Delete(Guid id)
+    {
+        try
+        {
+            var options = new DialogOptions() { CloseButton = true, MaxWidth = MaxWidth.ExtraSmall };
+            var dialog = DialogService.Show<DeleteDialog>("Delete", options);
+            var dialogResult = await dialog.Result;
+            if (!dialogResult.Canceled)
+            {
+                await roleService.DeleteRole(id);
+                Snackbar.Add("Role deleted.", MudBlazor.Severity.Success);
+                await GetRoles();
+            }
+        }
+        catch (ApiCallException ex)
+        {
+            foreach (var item in ex.ErrorMessages)
+            {
+                Snackbar.Add("Operation failed: " + item, MudBlazor.Severity.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Unexpected error: " + ex.Message, MudBlazor.Severity.Error);
+        }
+    }
+
+    async void Save()
+    {
+        try
+        {
+            saving = true;
+            bool editing = role is null ? false : role.Id != Guid.Empty;
+
+            await roleService.SaveRole(role);
+            role = new Role();
+            Snackbar.Add(editing ? "Role Edited." : "Role Added.", MudBlazor.Severity.Success);
+            await GetRoles();
+        }
+        catch (ApiCallException ex)
+        {
+            foreach (var item in ex.ErrorMessages)
+            {
+                Snackbar.Add("Operation failed: " + item, MudBlazor.Severity.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Unexpected error: " + ex.Message, MudBlazor.Severity.Error);
+        }
+
+        saving = false;
+
+    }
+
+    private void Edit(Guid id)
+    {
+        if (roles is not null)
+        {
+            role = roles.FirstOrDefault(c => c.Id == id);
+            JsRuntime.InvokeVoidAsync("OnScrollEvent");
+        }
+
+        form!.ResetValidation();
+    }
+
+
+}

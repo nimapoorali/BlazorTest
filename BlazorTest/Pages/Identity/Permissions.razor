@@ -1,0 +1,192 @@
+﻿@page "/identity/permissions"
+@inject IPermissionService permissionService
+@inject IRoleService roleService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject IJSRuntime JsRuntime
+
+<div class="mb-4">
+    <MudText Typo="Typo.h4" Style="">Permissions</MudText>
+    <MudBreadcrumbs Items="_breadCrumbItems" Class="pa-0" Style="font-size: small; font-weight:500;">
+    </MudBreadcrumbs>
+</div>
+<MudTable Elevation="4" Items="@permissions" Filter="new Func<Permission, bool>(Search)" @bind-role="permission" Loading="loading" RowsPerPage="5">
+    <ToolBarContent>
+        <MudButton class="mx-1" Color="@Color.Default" Variant="Variant.Filled" OnClick="GetPermissions">Reload Permissions</MudButton>
+        <MudButton class="mx-1" Color="@Color.Primary" Variant="Variant.Filled" OnClick="New">New Permission</MudButton>
+        <MudSpacer />
+        <MudTextField @bind-Value="searchString" Immediate="true" Placeholder="Search for Permissions..." Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+    </ToolBarContent>
+    <HeaderContent>
+        <MudTh>Name</MudTh>
+        <MudTh>Activity</MudTh>
+        <MudTh>Roles</MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Name">@context.Name</MudTd>
+        <MudTd DataLabel="ActivityState">
+            <MudCheckBox Style=" pointer-events: none; " @bind-Checked="@context.IsActive" Color="@(context.ActivityState=="Active"?Color.Success:context.ActivityState=="Deactive"?Color.Error:Color.Default)" ReadOnly="true"></MudCheckBox>
+        </MudTd>
+        <MudTd DataLabel="">
+            @if (context.RoleIds is not null)
+            {
+                var permissionRoles = allRoles?.Where(r => context.RoleIds.Contains(r.Id));
+                if (permissionRoles is not null)
+                    @string.Join(", ", permissionRoles.Select(r => r.Title))                    ;
+            }
+        </MudTd>
+        <MudTd DataLabel="">
+            <MudMenu Label="Actions" EndIcon="@Icons.Material.Outlined.KeyboardArrowDown" Color="Color.Primary" IconColor="Color.Primary" DisableElevation="true">
+                <MudMenuItem Icon="@Icons.Material.Outlined.Edit" IconSize="Size.Small" IconColor="Color.Primary" @onclick="@(()=>Edit(context.Id))">
+                    Edit
+                </MudMenuItem>
+                <MudMenuItem Icon="@Icons.Material.Outlined.People" IconSize="Size.Small" IconColor="Color.Primary" @onclick="@(()=>PermissionRoles(context.Id))">
+                    Roles
+                </MudMenuItem>
+                <MudMenuItem Icon="@Icons.Material.Outlined.Delete" IconSize="Size.Small" IconColor="Color.Secondary" @onclick="@(()=>Delete(context.Id))">
+                    Delete
+                </MudMenuItem>
+            </MudMenu>
+        </MudTd>
+    </RowTemplate>
+    <PagerContent>
+        <MudTablePager HorizontalAlignment="HorizontalAlignment.End" PageSizeOptions="new int[]{5,10,50,100}"></MudTablePager>
+    </PagerContent>
+</MudTable>
+
+@code {
+
+    private List<BreadcrumbItem> _breadCrumbItems = new List<BreadcrumbItem>
+                                                    {
+        new BreadcrumbItem("Home", href: "/"),
+        new BreadcrumbItem("Identity", href: null, disabled : true),
+        new BreadcrumbItem("Permissions", href: null, disabled : true)
+                                                    };
+    [CascadingParameter]
+    public EventCallback<Exception> errorHandler
+    {
+        get; set;
+    }
+
+    private List<Permission>? permissions = new();
+    private Permission? permission;
+    private string searchString = "";
+    private bool loading;
+    private List<Role>? allRoles = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            Snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopEnd;
+
+            allRoles = await roleService.GetRoles();
+
+            await GetPermissions();
+        }
+        catch (Exception ex)
+        {
+            await errorHandler.InvokeAsync(ex);
+        }
+
+    }
+
+
+
+
+    private bool Search(Permission permission)
+    {
+        if (string.IsNullOrWhiteSpace(searchString)) return true;
+        if ((permission.Name is not null && permission.Name.Contains(searchString, StringComparison.OrdinalIgnoreCase)))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    async Task<List<Permission>?> GetPermissions()
+    {
+        try
+        {
+            loading = true;
+            permissions = await permissionService.GetPermissions();
+        }
+        catch (Exception ex)
+        {
+            await errorHandler.InvokeAsync(ex);
+        }
+        finally
+        {
+            loading = false;
+            permission = new();
+            StateHasChanged();
+        }
+
+
+        return permissions;
+    }
+
+    async Task Delete(Guid id)
+    {
+        try
+        {
+            var options = new DialogOptions() { CloseOnEscapeKey = true, CloseButton = true, MaxWidth = MaxWidth.ExtraSmall };
+            var dialog = DialogService.Show<DeleteDialog>("Delete Confirmation", options);
+            var dialogResult = await dialog.Result;
+            if (!dialogResult.Canceled)
+            {
+                await permissionService.DeletePermission(id);
+                Snackbar.Add("Permission deleted.", MudBlazor.Severity.Success);
+                await GetPermissions();
+            }
+        }
+        catch (Exception ex)
+        {
+            await errorHandler.InvokeAsync(ex);
+        }
+    }
+
+    async Task Edit(Guid id)
+    {
+        if (permissions is not null)
+        {
+            permission = permissions.FirstOrDefault(c => c.Id == id);
+            var parameters = new DialogParameters<EditPermissionDialog> { { x => x.Permission, permission } };
+            var options = new DialogOptions { CloseOnEscapeKey = true, CloseButton = true };
+            var dialog = DialogService.Show<EditPermissionDialog>("Editing Permission", parameters, options);
+            var result = await dialog.Result;
+            if (!dialog.Result.IsCanceled)
+                await GetPermissions();
+        }
+
+    }
+
+    async Task New()
+    {
+        permission = new Permission();
+
+        var parameters = new DialogParameters<EditPermissionDialog> { { x => x.Permission, permission } };
+        var options = new DialogOptions { CloseOnEscapeKey = true, CloseButton = true };
+        var dialog = DialogService.Show<EditPermissionDialog>("Add New Permission", parameters, options);
+        var result = await dialog.Result;
+        if (!dialog.Result.IsCanceled)
+            await GetPermissions();
+    }
+
+    async Task PermissionRoles(Guid id)
+    {
+        if (permissions is not null)
+        {
+            permission = permissions.FirstOrDefault(c => c.Id == id);
+            var parameters = new DialogParameters<EditPermissionRolesDialog> { { x => x.Permission, permission } };
+            var options = new DialogOptions { CloseOnEscapeKey = true, CloseButton = true, FullWidth = true };
+            var dialog = DialogService.Show<EditPermissionRolesDialog>("Defining Permission Roles", parameters, options);
+            var result = await dialog.Result;
+            if (!dialog.Result.IsCanceled)
+                await GetPermissions();
+        }
+
+    }
+}

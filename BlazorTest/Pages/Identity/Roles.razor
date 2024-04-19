@@ -1,0 +1,172 @@
+﻿@page "/identity/roles"
+@inject IRoleService roleService
+@inject ISnackbar Snackbar;
+@inject IDialogService DialogService;
+@inject IJSRuntime JsRuntime
+
+<div class="mb-4">
+    <MudText Typo="Typo.h4" Style="">Roles</MudText>
+    <MudBreadcrumbs Items="_breadCrumbItems" Class="pa-0" Style="font-size: small; font-weight:500;">
+    </MudBreadcrumbs>
+</div>
+<MudTable Elevation="4" Items="@roles" Filter="new Func<Role, bool>(Search)" @bind-role="role" Loading="loading" RowsPerPage="5">
+    <ToolBarContent>
+        @*<MudText Typo="Typo.h6" Color="Color.Info">Registered Roles</MudText>*@
+        <MudButton class="mx-1" Color="@Color.Default" Variant="Variant.Filled" OnClick="GetRoles">Reload Roles</MudButton>
+        <MudButton class="mx-1" Color="@Color.Primary" Variant="Variant.Filled" OnClick="New">New Role</MudButton>
+        <MudSpacer />
+        <MudTextField @bind-Value="searchString" Immediate="true" Placeholder="Search for Roles..." Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+    </ToolBarContent>
+    <HeaderContent>
+        <MudTh>Id</MudTh>
+        <MudTh>Title</MudTh>
+        <MudTh>Group Title</MudTh>
+        <MudTh>Activity</MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Id">@context.Id</MudTd>
+        <MudTd DataLabel="FirstName">@context.Title</MudTd>
+        <MudTd DataLabel="LastName">@context.GroupTitle</MudTd>
+        <MudTd DataLabel="ActivityState">
+            <MudCheckBox Style=" pointer-events: none; " @bind-Checked="@context.IsActive" Color="@(context.ActivityState=="Active"?Color.Success:context.ActivityState=="Deactive"?Color.Error:Color.Default)" ReadOnly="true"></MudCheckBox>
+        </MudTd>
+        <MudTd DataLabel="">
+            <MudMenu Label="Actions" EndIcon="@Icons.Material.Outlined.KeyboardArrowDown" Color="Color.Primary" IconColor="Color.Primary" DisableElevation="true">
+                <MudMenuItem Icon="@Icons.Material.Outlined.Edit" IconSize="Size.Small" IconColor="Color.Primary" @onclick="@(()=>Edit(context.Id))">
+                    Edit
+                </MudMenuItem>
+                <MudMenuItem Icon="@Icons.Material.Outlined.Delete" IconSize="Size.Small" IconColor="Color.Secondary" @onclick="@(()=>Delete(context.Id))">
+                    Delete
+                </MudMenuItem>
+            </MudMenu>
+        </MudTd>
+    </RowTemplate>
+    <PagerContent>
+        <MudTablePager HorizontalAlignment="HorizontalAlignment.End" PageSizeOptions="new int[]{5,10,50,100}"></MudTablePager>
+    </PagerContent>
+</MudTable>
+
+@code {
+
+    private List<BreadcrumbItem> _breadCrumbItems = new List<BreadcrumbItem>
+    {
+        new BreadcrumbItem("Home", href: "/"),
+        new BreadcrumbItem("Identity", href: null, disabled : true),
+        new BreadcrumbItem("Roles", href: null, disabled : true)
+    };
+
+
+    private List<Role>? roles = new();
+    private Role? role;
+    private string searchString = "";
+    private bool loading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await GetRoles();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, MudBlazor.Severity.Error);
+        }
+
+    }
+
+    private bool Search(Role role)
+    {
+        if (string.IsNullOrWhiteSpace(searchString)) return true;
+        if (role.Title.Contains(searchString, StringComparison.OrdinalIgnoreCase)
+            || role.GroupTitle.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    async Task<List<Role>?> GetRoles()
+    {
+        try
+        {
+            loading = true;
+            roles = await roleService.GetRoles();
+        }
+        catch (ApiCallException ex)
+        {
+            foreach (var item in ex.ErrorMessages)
+            {
+                Snackbar.Add(item, MudBlazor.Severity.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, MudBlazor.Severity.Error);
+        }
+        finally
+        {
+            loading = false;
+            role = new();
+            StateHasChanged();
+        }
+
+        return roles;
+    }
+
+    async Task Delete(Guid id)
+    {
+        try
+        {
+            var options = new DialogOptions() { CloseOnEscapeKey = true, CloseButton = true, MaxWidth = MaxWidth.ExtraSmall };
+            var dialog = DialogService.Show<DeleteDialog>("Delete", options);
+            var dialogResult = await dialog.Result;
+            if (!dialogResult.Canceled)
+            {
+                await roleService.DeleteRole(id);
+                Snackbar.Add("Role deleted.", MudBlazor.Severity.Success);
+                await GetRoles();
+            }
+        }
+        catch (ApiCallException ex)
+        {
+            foreach (var item in ex.ErrorMessages)
+            {
+                Snackbar.Add("Operation failed: " + item, MudBlazor.Severity.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Unexpected error: " + ex.Message, MudBlazor.Severity.Error);
+        }
+    }
+
+
+
+    async Task Edit(Guid id)
+    {
+        if (roles is not null)
+        {
+            role = roles.FirstOrDefault(c => c.Id == id);
+            var parameters = new DialogParameters<EditRoleDialog> { { x => x.Role, role } };
+            var options = new DialogOptions { CloseOnEscapeKey = true, CloseButton = true };
+            var dialog = DialogService.Show<EditRoleDialog>("Editing Role", parameters, options);
+            var result = await dialog.Result;
+            if (!dialog.Result.IsCanceled)
+                await GetRoles();
+        }
+
+    }
+
+    async Task New()
+    {
+        role = new Role();
+        var parameters = new DialogParameters<EditRoleDialog> { { x => x.Role, role } };
+        var options = new DialogOptions { CloseOnEscapeKey = true, CloseButton = true };
+        var dialog = DialogService.Show<EditRoleDialog>("Add New Role", parameters, options);
+        var result = await dialog.Result;
+        if (!dialog.Result.IsCanceled)
+            await GetRoles();
+    }
+}

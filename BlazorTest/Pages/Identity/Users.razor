@@ -1,0 +1,280 @@
+﻿@page "/identity/users"
+@inject IUserService userService
+@inject ISnackbar Snackbar;
+@inject IDialogService DialogService;
+@inject IJSRuntime JsRuntime
+
+<div class="mb-4">
+    <MudText Typo="Typo.h4" Style="">Users</MudText>
+    <MudBreadcrumbs Items="_breadCrumbItems" Class="pa-0" Style="font-size: small; font-weight:500;">
+    </MudBreadcrumbs>
+</div>
+<MudTable Striped Elevation="4" Items="@users" Filter="new Func<User, bool>(Search)" @bind-role="user" Loading="loading" RowsPerPage="5">
+    <ToolBarContent>
+        <MudButton class="mx-1" Color="@Color.Default" Variant="Variant.Filled" OnClick="GetUsers">Reload Users</MudButton>
+        <MudButton class="mx-1" Color="@Color.Primary" Variant="Variant.Filled" OnClick="New">New User</MudButton>
+        <MudButton class="mx-1" Color="@Color.Primary" Variant="Variant.Filled" OnClick="NewMobile">New Mobile User</MudButton>
+        <MudButton class="mx-1" Color="@Color.Primary" Variant="Variant.Filled" OnClick="NewEmail">New Email User</MudButton>
+        <MudSpacer />
+        <MudTextField @bind-Value="searchString" Immediate="true" Placeholder="Search for Users..." Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+    </ToolBarContent>
+    <HeaderContent>
+        @*<MudTh>Id</MudTh>*@
+        <MudTh>Username</MudTh>
+        <MudTh>First Name</MudTh>
+        <MudTh>Last Name</MudTh>
+        <MudTh>Nick Name</MudTh>
+        <MudTh>Mobile</MudTh>
+        <MudTh>Email</MudTh>
+        <MudTh>Activity</MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        @*<MudTd DataLabel="Id">@context.Id</MudTd>*@
+        <MudTd DataLabel="Username">@context.Username</MudTd>
+        <MudTd DataLabel="FirstName">@context.FirstName</MudTd>
+        <MudTd DataLabel="LastName">@context.LastName</MudTd>
+        <MudTd DataLabel="NickName">@context.NickName</MudTd>
+        <MudTd DataLabel="Mobile">
+            <MudBadge Visible="@(!string.IsNullOrEmpty(context.Mobile))" Origin="Origin.TopRight" Dot="true" Color="@((context.IsMobileVerified is not null && context.IsMobileVerified.Value)?Color.Success:Color.Error)">
+                <MudLink OnClick="@(()=>EditMobile(context.Id))" Underline="Underline.Always" Typo="Typo.body2">
+                    @(string.IsNullOrEmpty(context.Mobile) ? "Mobile not set" : context.Mobile)
+                </MudLink>
+            </MudBadge>
+        </MudTd>
+        <MudTd DataLabel="Email">
+            <MudBadge Visible="@(!string.IsNullOrEmpty(context.Email))" Origin="Origin.TopRight" Dot="true" Color="@((context.IsEmailVerified is not null && context.IsEmailVerified.Value)?Color.Success:Color.Error)">
+                <MudLink OnClick="@(()=>EditEmail(context.Id))" Underline="Underline.Always" Typo="Typo.body2">
+                    @(string.IsNullOrEmpty(context.Email) ? "Email not set" : context.Email)
+                </MudLink>
+            </MudBadge>
+        </MudTd>
+        <MudTd DataLabel="ActivityState">
+            <MudCheckBox Style=" pointer-events: none; " @bind-Checked="@context.IsActive" Color="@(context.ActivityState=="Active"?Color.Success:context.ActivityState=="Deactive"?Color.Error:Color.Default)" ReadOnly="true"></MudCheckBox>
+        </MudTd>
+        <MudTd DataLabel="">
+            <MudMenu Label="Actions" EndIcon="@Icons.Material.Outlined.KeyboardArrowDown" Color="Color.Primary" IconColor="Color.Primary" DisableElevation="true">
+                <MudMenuItem Icon="@Icons.Material.Outlined.Edit" IconSize="Size.Small" IconColor="Color.Primary" @onclick="@(()=>Edit(context.Id))">
+                    Edit
+                </MudMenuItem>
+                <MudMenuItem Icon="@Icons.Material.Outlined.People" IconSize="Size.Small" IconColor="Color.Primary" @onclick="@(()=>UserRoles(context.Id))">
+                    Roles
+                </MudMenuItem>
+                <MudMenuItem Icon="@Icons.Material.Outlined.Delete" IconSize="Size.Small" IconColor="Color.Secondary" @onclick="@(()=>Delete(context.Id))">
+                    Delete
+                </MudMenuItem>
+            </MudMenu>
+        </MudTd>
+    </RowTemplate>
+    <PagerContent>
+        <MudTablePager HorizontalAlignment="HorizontalAlignment.End" PageSizeOptions="new int[]{5,10,50,100}"></MudTablePager>
+    </PagerContent>
+</MudTable>
+
+@code {
+
+    private List<BreadcrumbItem> _breadCrumbItems = new List<BreadcrumbItem>
+                                                    {
+        new BreadcrumbItem("Home", href: "/"),
+        new BreadcrumbItem("Identity", href: null, disabled : true),
+        new BreadcrumbItem("Users", href: null, disabled : true)
+                                                    };
+    [CascadingParameter]
+    public EventCallback<Exception> errorHandler
+    {
+        get; set;
+    }
+
+    private List<User>? users = new();
+    private User? user;
+    private string searchString = "";
+    private bool loading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            Snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopEnd;
+
+            await GetUsers();
+        }
+        catch (Exception ex)
+        {
+            await errorHandler.InvokeAsync(ex);
+        }
+
+    }
+
+
+
+
+    private bool Search(User user)
+    {
+        if (string.IsNullOrWhiteSpace(searchString)) return true;
+        if ((user.Username is not null && user.Username.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+        || (user.FirstName is not null && user.FirstName.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+        || (user.LastName is not null && user.LastName.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+        || (user.NickName is not null && user.NickName.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+        || (user.Mobile is not null && user.Mobile.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+        || (user.Email is not null && user.Email.Contains(searchString, StringComparison.OrdinalIgnoreCase)))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    async Task<List<User>?> GetUsers()
+    {
+        try
+        {
+            loading = true;
+            users = await userService.GetUsers();
+        }
+        catch (Exception ex)
+        {
+            await errorHandler.InvokeAsync(ex);
+        }
+        finally
+        {
+            loading = false;
+            user = new();
+            StateHasChanged();
+        }
+
+
+        return users;
+    }
+
+    async Task Delete(Guid id)
+    {
+        try
+        {
+            var options = new DialogOptions() { CloseOnEscapeKey = true, CloseButton = true, MaxWidth = MaxWidth.ExtraSmall };
+            var dialog = DialogService.Show<DeleteDialog>("Delete Confirmation", options);
+            var dialogResult = await dialog.Result;
+            if (!dialogResult.Canceled)
+            {
+                await userService.DeleteUser(id);
+                Snackbar.Add("User deleted.", MudBlazor.Severity.Success);
+                await GetUsers();
+            }
+        }
+        catch (Exception ex)
+        {
+            await errorHandler.InvokeAsync(ex);
+        }
+    }
+
+    async Task Edit(Guid id)
+    {
+        if (users is not null)
+        {
+            user = users.FirstOrDefault(c => c.Id == id);
+
+            if (user is not null)
+            {
+                var parameters = new DialogParameters<EditUserDialog> { { x => x.User, user } };
+                var options = new DialogOptions { CloseOnEscapeKey = true, CloseButton = true };
+                var dialog = DialogService.Show<EditUserDialog>("Editing User", parameters, options);
+                var result = await dialog.Result;
+                if (!dialog.Result.IsCanceled)
+                    await GetUsers();
+            }
+        }
+
+    }
+
+    async Task New()
+    {
+        user = new User();
+
+        var parameters = new DialogParameters<EditUserDialog> { { x => x.User, user } };
+        var options = new DialogOptions { CloseOnEscapeKey = true, CloseButton = true };
+        var dialog = DialogService.Show<EditUserDialog>("Add New User", parameters, options);
+        var result = await dialog.Result;
+        if (!dialog.Result.IsCanceled)
+            await GetUsers();
+    }
+    async Task NewMobile()
+    {
+        var mobileUser = new MobileUser();
+
+        var parameters = new DialogParameters<NewMobileUserDialog> { { x => x.User, mobileUser } };
+        var options = new DialogOptions { CloseOnEscapeKey = true, CloseButton = true, FullWidth = true };
+        var dialog = DialogService.Show<NewMobileUserDialog>("Add New Mobile User", parameters, options);
+        var result = await dialog.Result;
+        if (!dialog.Result.IsCanceled)
+            await GetUsers();
+    }
+    async Task EditMobile(Guid id)
+    {
+        if (users is not null)
+        {
+            user = users.FirstOrDefault(c => c.Id == id);
+
+            if (user is not null)
+            {
+                var mobileUser = new EditMobile() { UserId = user.Id, Mobile = user.Mobile };
+
+                var parameters = new DialogParameters<EditMobileDialog> {
+                    { x => x.User, mobileUser },
+                    { x => x.IsEditing, !string.IsNullOrEmpty(mobileUser.Mobile) }
+                };
+                var options = new DialogOptions { CloseOnEscapeKey = true, CloseButton = true, FullWidth = true };
+                var dialog = DialogService.Show<EditMobileDialog>("Edit Mobile", parameters, options);
+                var result = await dialog.Result;
+                if (!dialog.Result.IsCanceled)
+                    await GetUsers();
+            }
+        }
+    }
+    async Task NewEmail()
+    {
+        var emailUser = new EmailUser();
+
+        var parameters = new DialogParameters<NewEmailUserDialog> { { x => x.User, emailUser } };
+        var options = new DialogOptions { CloseOnEscapeKey = true, CloseButton = true, FullWidth = true };
+        var dialog = DialogService.Show<NewEmailUserDialog>("Add New Email User", parameters, options);
+        var result = await dialog.Result;
+        if (!dialog.Result.IsCanceled)
+            await GetUsers();
+    }
+    async Task EditEmail(Guid id)
+    {
+        if (users is not null)
+        {
+            user = users.FirstOrDefault(c => c.Id == id);
+
+            if (user is not null)
+            {
+                var emailUser = new EditEmail() { UserId = user.Id, Email = user.Email };
+
+                var parameters = new DialogParameters<EditEmailDialog> {
+                    { x => x.User, emailUser },
+                    { x => x.IsEditing, !string.IsNullOrEmpty(emailUser.Email) }
+                };
+                var options = new DialogOptions { CloseOnEscapeKey = true, CloseButton = true, FullWidth = true };
+                var dialog = DialogService.Show<EditEmailDialog>("Edit Email", parameters, options);
+                var result = await dialog.Result;
+                if (!dialog.Result.IsCanceled)
+                    await GetUsers();
+            }
+
+        }
+    }
+    async Task UserRoles(Guid id)
+    {
+        if (users is not null)
+        {
+            user = users.FirstOrDefault(c => c.Id == id);
+            var parameters = new DialogParameters<EditUserRolesDialog> { { x => x.User, user } };
+            var options = new DialogOptions { CloseOnEscapeKey = true, CloseButton = true, FullWidth = true };
+            var dialog = DialogService.Show<EditUserRolesDialog>("Defining User Roles", parameters, options);
+            var result = await dialog.Result;
+            if (!dialog.Result.IsCanceled)
+                await GetUsers();
+        }
+
+    }
+}

@@ -1,0 +1,164 @@
+﻿@inject IUserService userService
+@inject IRoleService roleService
+@inject IDialogService DialogService;
+@inject ISnackbar Snackbar;
+
+<MudDialog DefaultFocus="DefaultFocus.FirstChild">
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Outlined.People" Color="Color.Primary" Class="mr-3 mb-n1" />
+            @MudDialog.Title
+        </MudText>
+        <div class="d-flex ms-6 mt-2 align-center">
+            <span class="me-2">Username: </span>
+            <MudText Typo="Typo.h6">@User?.Username</MudText>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        <MudContainer Style=" max-height: 300px; overflow-y: scroll">
+
+            @foreach (var rolesGroup in roles.GroupBy(r => r.GroupTitle))
+            {
+                <MudText Typo="Typo.caption">@rolesGroup.Key</MudText>
+                <MudDivider></MudDivider>
+                <div class="d-flex flex-wrap">
+                    @foreach (var role in rolesGroup)
+                    {
+                        if (rolesSelection.Keys.Contains(role.Id))
+                        {
+                            <MudCheckBox @bind-Checked="@rolesSelection[role.Id]" Label="@role.Title" Color="Color.Primary"></MudCheckBox>
+                        }
+                        else
+                        {
+                            <MudText>@role.Title [@role.Id]</MudText>
+                            @*<MudCheckBox  Label="@role.Title" Color="Color.Primary"></MudCheckBox>*@
+                        }
+                    }
+                </div>
+            }
+        </MudContainer>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="@Color.Error" Variant="Variant.Filled" OnClick="ClearAll">Clear</MudButton>
+        <MudButton Color="@Color.Success" Variant="Variant.Filled" OnClick="Save">Save</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    MudDialogInstance MudDialog { get; set; }
+
+    Dictionary<Guid, bool> rolesSelection = new Dictionary<Guid, bool>();
+    IEnumerable<Role>? roles = new List<Role>();
+
+    private bool loading;
+    private bool saving;
+
+    [Parameter]
+    public User? User { get; set; }
+
+
+    void Cancel() => MudDialog.Cancel();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await SetRoles();
+    }
+
+    async Task SetRoles()
+    {
+        try
+        {
+            loading = true;
+            rolesSelection.Clear();
+            roles = await roleService.GetRoles();
+            var userRoles = await userService.GetUserRoles(User!.Id);
+            if (roles is not null && userRoles is not null)
+                foreach (var role in roles)
+                    rolesSelection.Add(role.Id, userRoles.Any(ur => ur.RoleId == role.Id));
+
+
+        }
+        catch (Exception ex)
+        {
+            await HandleException(ex);
+        }
+        finally
+        {
+            loading = false;
+            //StateHasChanged();
+        }
+    }
+
+    async Task Save()
+    {
+        try
+        {
+            saving = true;
+            var selectedRoleIds = rolesSelection.Where(s => s.Value).Select(s => s.Key).ToArray();
+            await userService.SetUserRoles(User!.Id, selectedRoleIds);
+            Snackbar.Add("User Roles Saved.", MudBlazor.Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            await HandleException(ex);
+        }
+
+        saving = false;
+    }
+
+    async Task ClearAll()
+    {
+        try
+        {
+            var options = new DialogOptions() { CloseOnEscapeKey = true, CloseButton = true, MaxWidth = MaxWidth.ExtraSmall };
+            var dialog = DialogService.Show<DeleteDialog>("Delete Confirmation", options);
+            var dialogResult = await dialog.Result;
+            if (!dialogResult.Canceled)
+            {
+                await userService.ClearRoles(User!.Id);
+                Snackbar.Add("All Roles deleted.", MudBlazor.Severity.Success);
+                MudDialog.Close(DialogResult.Ok(true));
+                //await SetRoles();
+            }
+        }
+        catch (Exception ex)
+        {
+            await HandleException(ex);
+        }
+    }
+
+    public async Task HandleException(Exception ex)
+    {
+
+        if (ex is ApiCallException)
+        {
+            Snackbar.Add(
+    @<div>
+        <h3>Warning</h3>
+        <ul>
+            @foreach (var errorMessage in (ex as ApiCallException).ErrorMessages)
+            {
+                <li>@errorMessage</li>
+            }
+        </ul>
+    </div>
+        , Severity.Warning);
+        }
+        else
+        {
+            Snackbar.Add(
+    @<div>
+        <h3>Error</h3>
+        <ul>
+            <li>@ex.Message</li>
+            <li>@ex.InnerException?.Message</li>
+        </ul>
+    </div>
+    , Severity.Error);
+        }
+
+    }
+}

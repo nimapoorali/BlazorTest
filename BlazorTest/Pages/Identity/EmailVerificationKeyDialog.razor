@@ -1,0 +1,90 @@
+﻿@inject IUserService userService
+@inject ISnackbar Snackbar;
+
+<MudDialog DefaultFocus="DefaultFocus.FirstChild">
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Outlined.Key" Color="Color.Primary" Class="mr-3 mb-n1" />
+            @MudDialog.Title
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudForm @bind-IsValid="formIsValid" Model="User" Disabled="saving" @ref="form">
+            <MudTextField @bind-Value="emailKey" Immediate Required Label="Verification Key" Clearable Variant="Variant.Outlined" Margin="Margin.Normal"></MudTextField>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="@Color.Success" Variant="Variant.Filled" OnClick="Save" Disabled="!formIsValid">Save</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    MudDialogInstance MudDialog { get; set; }
+
+    private MudForm? form;
+    private bool saving;
+    bool formIsValid;
+
+    [Parameter]
+    public EditEmail? User { get; set; }
+    private string emailKey;
+
+    void Cancel() => MudDialog.Cancel();
+
+    protected override async Task OnInitializedAsync()
+    {
+
+    }
+
+    async Task Save()
+    {
+        try
+        {
+            saving = true;
+            await userService.VerifyEmail(User!.UserId, emailKey);
+            Snackbar.Add("Email Verified.", MudBlazor.Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            await HandleException(ex);
+        }
+
+        saving = false;
+        form!.ResetValidation();
+    }
+
+    public async Task HandleException(Exception ex)
+    {
+
+        if (ex is ApiCallException)
+        {
+            Snackbar.Add(
+    @<div>
+        <h3>Warning</h3>
+        <ul>
+            @foreach (var errorMessage in (ex as ApiCallException).ErrorMessages)
+            {
+                <li>@errorMessage</li>
+            }
+        </ul>
+    </div>
+    , Severity.Warning);
+        }
+        else
+        {
+            Snackbar.Add(
+    @<div>
+        <h3>Error</h3>
+        <ul>
+            <li>@ex.Message</li>
+            <li>@ex.InnerException?.Message</li>
+        </ul>
+    </div>
+    , Severity.Error);
+        }
+
+    }
+}
